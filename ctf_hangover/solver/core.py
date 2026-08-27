@@ -122,11 +122,14 @@ class Solver:
             max_tokens=settings.swarm_max_tokens,
             max_seconds=settings.swarm_max_minutes * 60,
         )
-        self.sandbox = Sandbox(name=f"{self.challenge_name}-{self.model.replace('/', '-')}")
+        # Allow mock sandbox injection for testing
+        if self.sandbox is None:
+            self.sandbox = Sandbox(name=f"{self.challenge_name}-{self.model.replace('/', '-')}")
+        own_sandbox = self.sandbox
 
         started = time.monotonic()
         try:
-            await self.sandbox.start()
+            await own_sandbox.start()
 
             while not self._stop.is_set() and not budget.exceeded:
                 # Drain any guidance/insights from bus
@@ -171,7 +174,7 @@ class Solver:
                         if fn == "run_command":
                             cmd = args["command"]
                             timeout = args.get("timeout", 120)
-                            rc, stdout, stderr = await self.sandbox.exec(cmd, timeout=timeout)
+                            rc, stdout, stderr = await own_sandbox.exec(cmd, timeout=timeout)
                             tool_resp = f"rc={rc}\nstdout:\n{stdout}\nstderr:\n{stderr}"
                             # Truncate huge outputs
                             if len(tool_resp) > 8000:
@@ -226,8 +229,8 @@ class Solver:
             log.error("solver %s error: %s", self.model, e)
             self.result.status = "error"
         finally:
-            if self.sandbox:
-                await self.sandbox.stop()
+            if own_sandbox:
+                await own_sandbox.stop()
 
         return self._finish(started if 'started' in dir() else time.monotonic())
 
