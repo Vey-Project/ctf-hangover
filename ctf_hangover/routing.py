@@ -3,30 +3,55 @@
 from __future__ import annotations
 
 # Category → preferred model order. Index 0 = best fit.
+# Models must match those returned by 9Router /v1/models.
 _CATEGORY_PREFERENCE: dict[str, list[str]] = {
     "pwn": [
-        "claude-opus-4-6", "gpt-5.4", "gpt-5.3-codex", "gpt-5.4-mini",
+        "Sx-AI/anthropic/claude-opus-4.8",
+        "Sx-AI/openai/gpt-5.6-terra",
+        "Sx-AI/anthropic/claude-opus-4.7",
+        "ctf-reverse",
     ],
     "rev": [
-        "gpt-5.3-codex", "claude-opus-4-6", "gpt-5.4", "gpt-5.4-mini",
+        "ctf-reverse",
+        "Sx-AI/anthropic/claude-opus-4.8",
+        "Sx-AI/openai/gpt-5.6-terra",
+        "Sx-AI/anthropic/claude-opus-4.7",
     ],
     "crypto": [
-        "gpt-5.4", "claude-opus-4-6", "gpt-5.3-codex", "gpt-5.4-mini",
+        "ctf-crypto",
+        "Sx-AI/openai/gpt-5.6-terra",
+        "Sx-AI/anthropic/claude-opus-4.8",
+        "Sx-AI/anthropic/claude-opus-4.7",
     ],
     "forensics": [
-        "gpt-5.4-mini", "gpt-5.4", "claude-opus-4-6", "gemini-3-flash-preview",
+        "ctf-forensics",
+        "Sx-AI/openai/gpt-5.6-terra",
+        "Sx-AI/anthropic/claude-opus-4.7",
+        "ctf-reasoning",
     ],
     "web": [
-        "gpt-5.4-mini", "gpt-5.4", "gemini-3-flash-preview", "claude-opus-4-6",
+        "ctf-web",
+        "Sx-AI/openai/gpt-5.6-terra",
+        "Sx-AI/anthropic/claude-opus-4.8",
+        "Sx-AI/anthropic/claude-sonnet-5",
     ],
     "misc": [
-        "gpt-5.4-mini", "gemini-3-flash-preview", "gpt-5.4", "claude-opus-4-6",
+        "ctf-reasoning",
+        "Sx-AI/openai/gpt-5.6-terra",
+        "Sx-AI/anthropic/claude-opus-4.8",
+        "Critical-Judgement",
     ],
     "stego": [
-        "gemini-3-flash-preview", "gpt-5.4-mini", "gpt-5.4", "claude-opus-4-6",
+        "ctf-forensics",
+        "Sx-AI/anthropic/claude-opus-4.8",
+        "Sx-AI/openai/gpt-5.6-terra",
+        "ctf-reasoning",
     ],
     "osint": [
-        "gemini-3-flash-preview", "gpt-5.4", "gpt-5.4-mini", "claude-opus-4-6",
+        "ctf-reasoning",
+        "Sx-AI/openai/gpt-5.6-terra",
+        "Sx-AI/anthropic/claude-sonnet-5",
+        "Critical-Judgement",
     ],
 }
 
