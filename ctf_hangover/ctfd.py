@@ -11,6 +11,52 @@ from bs4 import BeautifulSoup
 log = logging.getLogger(__name__)
 
 
+# Platform detection: CTFd uses /api/v1/* endpoints + /login.
+# Cyber Academy (cyberacademy.id) appears to be CTFd-based.
+KNOWN_CTFD_HOSTS = {
+    "cyberacademy.id",
+    "www.cyberacademy.id",
+    "ctf.cyberacademy.id",
+    "lab.cyberacademy.id",
+}
+
+
+async def detect_platform(base_url: str) -> str:
+    """Detect whether the target URL is CTFd-based or custom.
+
+    Returns one of: 'ctfd', 'unknown'.
+    Detection logic:
+      1. Try GET /api/v1/challenges → if 200 or 401/403, likely CTFd.
+      2. Try GET /api/v1/notifications → same.
+      3. Fallback: check if hostname is in KNOWN_CTFD_HOSTS allowlist.
+    """
+    base = base_url.rstrip("/")
+    parsed_httpx = httpx.URL(base)
+    host = parsed_httpx.host.lower() if parsed_httpx.host else ""
+
+    if host in KNOWN_CTFD_HOSTS:
+        log.info("platform detect: %s is in CTFd allowlist", host)
+        return "ctfd"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=False) as c:
+            # CTFd returns 401 (no auth) or 200 with empty list, never 404
+            r = await c.get(f"{base}/api/v1/challenges")
+            if r.status_code in (200, 401, 403):
+                log.info("platform detect: %s exposes /api/v1/challenges (%d) -> CTFd", base, r.status_code)
+                return "ctfd"
+            # CTFd serves /login as 200 HTML; custom platforms may not
+            r2 = await c.get(f"{base}/login")
+            if r2.status_code == 200 and "csrf" in r2.text.lower():
+                log.info("platform detect: %s has CSRF form -> CTFd", base)
+                return "ctfd"
+    except Exception as e:
+        log.warning("platform detect failed for %s: %s", base, e)
+
+    log.info("platform detect: %s -> unknown (not CTFd)", base)
+    return "unknown"
+
+
 class CTFdClient:
     """Async CTFd API client."""
 
