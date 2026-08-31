@@ -17,6 +17,42 @@ log = logging.getLogger(__name__)
 
 FLAG_RE = re.compile(r"(?:flag|FLAG|CTF)\{[^}]{1,200}\}")
 
+# CTF Cyber Academy flags are NOT always in {flag{...}} format. They use:
+#   - free-form text answers (commands, paths, CVE IDs, hostnames, IPs)
+#   - timestamps ("Nov 18, 2025 @ 23:09:53.000")
+#   - MD5/SHA1/SHA256 file hashes (32/40/64 hex)
+#   - URL with @url:http://... prefix
+#   - CVE IDs (CVE-YYYY-NNNN)
+#   - filenames with extension
+# We add a catalog of alternative patterns; solver tries ALL of them.
+FLAG_PATTERNS: list[re.Pattern[str]] = [
+    # Classic CTF flag braces
+    re.compile(r"(?:flag|FLAG|CTF|cac|cyberacademy)\{[^}]{1,200}\}"),
+    # Timestamp (Cyber Academy SOC answer format)
+    re.compile(r"[A-Z][a-z]{2}\s\d{1,2},\s\d{4}\s@\s\d{2}:\d{2}:\d{2}(?:\.\d{3})?"),
+    # MD5 (32 hex)
+    re.compile(r"\b[a-fA-F0-9]{32}\b"),
+    # SHA1 (40 hex)
+    re.compile(r"\b[a-fA-F0-9]{40}\b"),
+    # SHA256 (64 hex)
+    re.compile(r"\b[a-fA-F0-9]{64}\b"),
+    # @url: prefix (Cyber Academy answer wrapper for URLs/IPs/paths)
+    re.compile(r"@url:[^\s]+"),
+    # CVE IDs
+    re.compile(r"CVE-\d{4}-\d{4,7}"),
+    # @url: prefix variant for paths
+    re.compile(r"@url:https?://[^\s]+"),
+]
+
+
+def find_flag(text: str) -> str | None:
+    """Return first match from any flag pattern, or None."""
+    for pat in FLAG_PATTERNS:
+        m = pat.search(text)
+        if m:
+            return m.group(0)
+    return None
+
 SYSTEM_PROMPT = """\
 You are an autonomous CTF solver running inside a Docker container with full \
 CTF tooling (pwntools, radare2, gdb, nmap, sqlmap, binwalk, sage, volatility3, \
@@ -209,12 +245,12 @@ class Solver:
                                 "content": "Insight shared.",
                             })
 
-                # Check for flags in text output too
+                # Check for flags in text output too (Cyber Academy format)
                 content = msg.get("content") or ""
                 if isinstance(content, str):
-                    match = FLAG_RE.search(content)
+                    match = find_flag(content)
                     if match and not self.result.flag:
-                        self.result.flag = match.group(0)
+                        self.result.flag = match
                         self.result.status = "solved"
                         return self._finish(started)
 
