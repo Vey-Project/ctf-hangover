@@ -35,6 +35,24 @@ _CATEGORY_PREFERENCE: dict[str, list[str]] = {
         "Sx-AI/anthropic/claude-opus-4.8",
         "Sx-AI/anthropic/claude-sonnet-5",
     ],
+    # SOC / SIEM / Wazuh Elasticsearch query analysis.
+    # CTF Cyber Academy style: log forensics + sysmon + MITRE ATT&CK + KQL DSL.
+    # ctf-reasoning strongest at structured log analysis; opus + terra as backup.
+    "soc": [
+        "ctf-reasoning",
+        "kr/deepseek-3.2-thinking-agentic",
+        "Sx-AI/openai/gpt-5.6-terra",
+        "Sx-AI/anthropic/claude-opus-4.8",
+    ],
+    # Services / network exploitation.
+    # CVEs + port scan + hydra + exploit chaining. Strong code-reasoning models
+    # (deepseek-thinking, qwen3-coder) outperform on EDB scripts.
+    "services": [
+        "Sx-AI/openai/gpt-5.6-terra",
+        "kr/deepseek-3.2-thinking-agentic",
+        "kr/qwen3-coder-next-agentic",
+        "Sx-AI/anthropic/claude-opus-4.8",
+    ],
     "misc": [
         "ctf-reasoning",
         "Sx-AI/openai/gpt-5.6-terra",
