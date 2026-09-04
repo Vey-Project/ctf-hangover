@@ -9,6 +9,9 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     nmap sqlmap gobuster feroxbuster dirb \
     nikto hydra john hashcat \
     curl wget netcat-traditional socat \
+    smbclient \
+    mariadb-client default-mysql-client \
+    ftp \
     steghide foremost exiftool \
     imagemagick tesseract-ocr \
     ffmpeg sox \

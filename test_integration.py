@@ -46,11 +46,11 @@ async def main():
     from ctf_hangover.solver.core import Solver, TOOLS
 
     solver = Solver(
-        model="30-C",
+        model="ctf-reasoning",
         challenge_name="test-integration",
         challenge_prompt=challenge_prompt,
         bus=bus,
-        fallbacks=["combo-prem", "general-pool"],
+        fallbacks=["Critical-Judgement", "Sx-AI/openai/gpt-5.6-terra"],
         router=router,
     )
     solver.sandbox = MockSandbox()  # type: ignore

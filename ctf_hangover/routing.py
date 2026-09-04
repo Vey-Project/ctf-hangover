@@ -65,6 +65,21 @@ _CATEGORY_PREFERENCE: dict[str, list[str]] = {
         "Sx-AI/openai/gpt-5.6-terra",
         "ctf-reasoning",
     ],
+    # Platform category is "Steganografi" (Indonesian). route_models lowercases
+    # the category, so this must be its own key (not just "stego").
+    "steganografi": [
+        "ctf-forensics",
+        "Sx-AI/anthropic/claude-opus-4.8",
+        "Sx-AI/openai/gpt-5.6-terra",
+        "ctf-reasoning",
+    ],
+    # "Website" (Indonesian) == web; route_models lowercases so keep a key too.
+    "website": [
+        "ctf-web",
+        "Sx-AI/openai/gpt-5.6-terra",
+        "Sx-AI/anthropic/claude-opus-4.8",
+        "Sx-AI/anthropic/claude-sonnet-5",
+    ],
     "osint": [
         "ctf-reasoning",
         "Sx-AI/openai/gpt-5.6-terra",

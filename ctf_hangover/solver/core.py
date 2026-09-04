@@ -26,6 +26,14 @@ FLAG_RE = re.compile(r"(?:flag|FLAG|CTF)\{[^}]{1,200}\}")
 #   - filenames with extension
 # We add a catalog of alternative patterns; solver tries ALL of them.
 FLAG_PATTERNS: list[re.Pattern[str]] = [
+    # Cyber Academy / Cyber Defense Academy full-prefix brace formats.
+    # IMPORTANT: must be checked BEFORE the generic CTF brace below, or the
+    # generic (?:...|CTF|...) pattern matches only the inner "CTF{...}" and
+    # drops the "FLAG_CTF_CA"/"CA_FLAG_CTF"/"CA_Flag_Ctf" prefix. Observed:
+    #   FLAG_CTF_CA{...}        (WASI)
+    #   CA_FLAG_CTF{...}        (SARAPANG)
+    #   CA_Flag_Ctf{...}        (SIWAR)
+    re.compile(r"(?:FLAG_CTF_CA|CA_FLAG_CTF|CA_Flag_Ctf|CA_Flag_CTF|CA_CTF_FLAG|FLAG_CA_CTF)\{[^}]{1,200}\}"),
     # Classic CTF flag braces
     re.compile(r"(?:flag|FLAG|CTF|cac|cyberacademy)\{[^}]{1,200}\}"),
     # Timestamp (Cyber Academy SOC answer format)
@@ -40,6 +48,8 @@ FLAG_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"@url:[^\s]+"),
     # CVE IDs
     re.compile(r"CVE-\d{4}-\d{4,7}"),
+    # Pipe-joined numeric answers (KINABALU "17|18", "3204|5192")
+    re.compile(r"\b\d{1,5}\|\d{1,5}\b"),
     # @url: prefix variant for paths
     re.compile(r"@url:https?://[^\s]+"),
 ]
