@@ -50,9 +50,42 @@ FLAG_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"CVE-\d{4}-\d{4,7}"),
     # Pipe-joined numeric answers (KINABALU "17|18", "3204|5192")
     re.compile(r"\b\d{1,5}\|\d{1,5}\b"),
+    # Filenames with extension — Cyber Academy asks for "filename.ext"
+    # (MULU "cs2cheat (1).exe", SIBELA "enc-nyan.ps1", WANGGAMETI "nyan.html").
+    # Two shapes: plain single-token names (no space — never swallows prose),
+    # and names containing parentheses/space like "cs2cheat (1).exe" (the
+    # browser-download duplicate pattern), which we anchor on the "(<n>)." part.
+    re.compile(r"(?<![\w.])[\w][\w.\-]{0,63}\.(?:exe|ps1|php|html?|txt|zip|rar|7z|jpg|jpeg|png|gif|pdf|sh|py|js|db|sql|pcap|bin|elf|iso)\b"),
+    re.compile(r"(?<![\w.])[\w][\w .()\-]{0,63}\(\d+\)\.(?:exe|ps1|php|html?|txt|zip|rar|7z|jpg|jpeg|png|gif|pdf|sh|py|js|db|sql|pcap|bin|elf|iso)\b"),
+    # Windows paths — Cyber Academy asks for directory answers with backslashes
+    # (MULU Q2 "C:\Users\victim\Downloads", SIBELA Q11/12). No spaces inside.
+    re.compile(r"\b[A-Za-z]:\\[\w.\\()\-]{2,160}\b"),
     # @url: prefix variant for paths
     re.compile(r"@url:https?://[^\s]+"),
 ]
+
+# Answers that are NOT real flags (noise to skip in find_all_flags / de-dup).
+NOISE_ANSWERS = {
+    "index.php", "process.php", "readme.txt", "thumbnail.png", "admin.php",
+    "login.php", "robots.txt", "flag.txt", "C:\\Windows\\System32",
+}
+
+
+def find_all_flags(text: str) -> list[str]:
+    """Return every distinct candidate from any flag pattern, in order.
+
+    Ordered by pattern priority (most specific first) rather than raw text
+    position, so a filename mention inside prose doesn't shadow a real flag
+    later in the text.
+    """
+    seen: list[str] = []
+    for pat in FLAG_PATTERNS:
+        for m in pat.finditer(text):
+            v = m.group(0)
+            if v in NOISE_ANSWERS or v in seen:
+                continue
+            seen.append(v)
+    return seen
 
 
 def find_flag(text: str) -> str | None:
@@ -134,6 +167,7 @@ class SolverResult:
     tokens_used: int = 0
     turns: int = 0
     status: str = "running"  # running | solved | timeout | budget_exceeded | error
+    candidates: list[str] = field(default_factory=list)  # possible answers seen
 
 
 class Solver:
@@ -263,6 +297,17 @@ class Solver:
                         self.result.flag = match
                         self.result.status = "solved"
                         return self._finish(started)
+
+                # Extract every candidate so the coordinator/leaderboard can
+                # see options even before one is chosen.
+                if isinstance(content, str):
+                    self.result.candidates.extend(find_all_flags(content))
+                    # De-dupe, keep order
+                    seen: list[str] = []
+                    for c in self.result.candidates:
+                        if c not in seen:
+                            seen.append(c)
+                    self.result.candidates = seen
 
                 # Small delay between turns
                 await asyncio.sleep(0.5)

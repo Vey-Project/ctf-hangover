@@ -13,6 +13,8 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich.table import Table
 
+log = logging.getLogger(__name__)
+
 from .bus import InsightBus
 from .config import Settings, settings
 from .coordinator.core import Coordinator
@@ -179,6 +181,22 @@ async def run_competition(challenges_dir: str) -> None:
         for t in done:
             results.append(t.result())
 
+    # Submit solved flags to CTFd so the platform records them (even when a
+    # swarm's winning solver ran on a fallback model that skipped submit_flag).
+    solved = [r for r in results if r.flag]
+    if solved and settings.ctfd_url and settings.ctfd_token:
+        try:
+            ctfd = CTFdClient(settings.ctfd_url, settings.ctfd_token)
+            for r in solved:
+                if not r.flag:
+                    continue
+                chal = await ctfd.challenge_by_name(r.challenge.split("/")[0])
+                if chal:
+                    await ctfd.submit_flag(chal["id"], r.flag)
+            await ctfd.close()
+        except Exception as e:
+            log.warning("CTFd submission pass failed: %s", e)
+
     # Stop coordinator
     coordinator.stop()
     coord_task.cancel()
@@ -207,10 +225,24 @@ async def run_competition(challenges_dir: str) -> None:
 
 
 def guess_category(name: str, prompt: str) -> str:
-    """Heuristic category guess from name + prompt."""
+    """Heuristic category guess from name + prompt.
+
+    Matches Cyber Academy (Indonesian) labels first so the solver routes to the
+    correct model roster — the routing table keys are English ("soc",
+    "services", "web", "forensics", "stego").
+    """
     text = (name + " " + prompt).lower()
-    for cat in ("pwn", "rev", "crypto", "forensics", "web", "stego", "osint"):
-        if cat in text:
+    for cat, keys in (
+        ("soc", ("soc", "wazuh", "siem", "elastic", "kibana", "defacement", "ransomware", "mitre", "sysmon")),
+        ("services", ("services", "ssh", "smb", "ftp", "samba", "mysql")),
+        ("forensics", ("forensic", "pcap", "volatility", "memory dump", "steganografi", "stegano", "stego", "gambar", "image")),
+        ("web", ("website", "web", "http", "sql injection", "sqli", "lfi", "rfi", "xss", "upload", "wordpress", "php")),
+        ("crypto", ("crypto", "cipher", "rsa", "aes", "xor", "hash", "vigenere", "caesar", "base64")),
+        ("rev", ("reverse", "rev ", "gdb", "radare", "ida", "elf", "binary exploitation", "assembly", "disassembl")),
+        ("osint", ("osint", "open source", "instagram", "twitter", "google dork", "metadata", "geolocat")),
+        ("pwn", ("pwn", "buffer overflow", "ret2", "shellcode", "format string", "heap", "stack")),
+    ):
+        if any(k in text for k in keys):
             return cat
     return "misc"
 

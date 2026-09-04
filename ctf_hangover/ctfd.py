@@ -83,6 +83,17 @@ class CTFdClient:
             data["description_text"] = soup.get_text(separator="\n", strip=True)
         return data
 
+    async def challenge_by_name(self, name: str) -> dict | None:
+        """Find a challenge by its name. Returns the challenge dict or None."""
+        try:
+            chals = await self.challenges()
+        except Exception:
+            return None
+        for c in chals:
+            if c.get("name", "").lower() == name.lower():
+                return c
+        return None
+
     async def download_file(self, url: str, dest: str) -> str:
         resp = await self.client.get(url)
         resp.raise_for_status()
