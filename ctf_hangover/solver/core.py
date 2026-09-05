@@ -44,7 +44,8 @@ FLAG_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\b[a-fA-F0-9]{40}\b"),
     # SHA256 (64 hex)
     re.compile(r"\b[a-fA-F0-9]{64}\b"),
-    # @url: prefix (Cyber Academy answer wrapper for URLs/IPs/paths)
+    # @url: prefix (Cyber Academy answer wrapper for URLs/IPs/paths).
+    # The generic form also covers @url:https?://... so no separate https pattern.
     re.compile(r"@url:[^\s]+"),
     # CVE IDs
     re.compile(r"CVE-\d{4}-\d{4,7}"),
@@ -59,15 +60,23 @@ FLAG_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"(?<![\w.])[\w][\w .()\-]{0,63}\(\d+\)\.(?:exe|ps1|php|html?|txt|zip|rar|7z|jpg|jpeg|png|gif|pdf|sh|py|js|db|sql|pcap|bin|elf|iso)\b"),
     # Windows paths — Cyber Academy asks for directory answers with backslashes
     # (MULU Q2 "C:\Users\victim\Downloads", SIBELA Q11/12). No spaces inside.
-    re.compile(r"\b[A-Za-z]:\\[\w.\\()\-]{2,160}\b"),
-    # @url: prefix variant for paths
-    re.compile(r"@url:https?://[^\s]+"),
+    # Trailing (?![\w.\\ ]) rejects partial matches like "C:\Users\My" when the
+    # real path continues with a space ("C:\Users\My Folder\...") — a path
+    # containing spaces is not a valid answer shape here.
+    re.compile(r"\b[A-Za-z]:\\[\w.\\()\-]{2,160}(?![\w.\\ ])\b"),
 ]
 
 # Answers that are NOT real flags (noise to skip in find_all_flags / de-dup).
 NOISE_ANSWERS = {
     "index.php", "process.php", "readme.txt", "thumbnail.png", "admin.php",
     "login.php", "robots.txt", "flag.txt", "C:\\Windows\\System32",
+    # More real filenames that routinely appear in prose/tool output and are
+    # NOT answers (observed against the Cyber Academy vault corpus):
+    "index.html", "login.html", "flag.html", "config.php", "backup.zip",
+    "index.htm", "default.php", "home.php", "main.php", "style.css",
+    "script.js", "logo.png", "avatar.jpg", "background.png", "upload.php",
+    "download.php", "db.php", "conn.php", "database.sql", "dump.sql",
+    "install.php", "setup.php", "test.php", "info.php", "phpinfo.php",
 }
 
 
@@ -323,7 +332,7 @@ class Solver:
             if own_sandbox:
                 await own_sandbox.stop()
 
-        return self._finish(started if 'started' in dir() else time.monotonic())
+        return self._finish(started)
 
     def stop(self) -> None:
         self._stop.set()

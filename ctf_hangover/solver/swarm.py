@@ -44,7 +44,12 @@ class Swarm:
         self.result: SolverResult | None = None
 
     async def run(self) -> SolverResult:
-        """Race all models. Return the first solver that finds a flag."""
+        """Race all models. Return the first solver that finds a flag.
+
+        Waits in a loop: each round waits for the next solver to finish;
+        returns as soon as one produced a flag. If every solver finishes
+        without a flag, returns the most productive (highest token use).
+        """
         log.info(
             "swarm %s: racing %d models: %s",
             self.challenge_name, len(self.models), self.models,
@@ -63,54 +68,47 @@ class Swarm:
             ))
 
         tasks = [asyncio.create_task(s.run()) for s in self.solvers]
-
-        # Wait for first solver to find a flag
-        done, pending = await asyncio.wait(
-            tasks, return_when=asyncio.FIRST_COMPLETED,
-        )
-
-        # Check if any completed task found a flag
+        pending: set[asyncio.Task] = set(tasks)
         winner: SolverResult | None = None
-        for t in done:
-            r = t.result()
-            if r.flag:
-                winner = r
-                break
 
-        if winner:
-            # Cancel remaining solvers
-            for s in self.solvers:
-                s.stop()
-            for t in pending:
-                t.cancel()
-            await asyncio.gather(*pending, return_exceptions=True)
-            self.result = winner
-        else:
-            # No flag yet — keep waiting
-            if pending:
-                done2, pending2 = await asyncio.wait(
+        try:
+            while pending:
+                done, pending = await asyncio.wait(
                     pending, return_when=asyncio.FIRST_COMPLETED,
                 )
-                for t in done2:
+                for t in done:
                     r = t.result()
                     if r.flag:
                         winner = r
                         break
                 if winner:
-                    for s in self.solvers:
-                        s.stop()
-                    for t in pending2:
-                        t.cancel()
-                    await asyncio.gather(*pending2, return_exceptions=True)
-                    self.result = winner
+                    break
 
-        if not self.result:
-            # All solvers finished without finding a flag
-            self.result = max(
-                (t.result() for t in tasks),
-                key=lambda r: r.tokens_used,
-                default=SolverResult(challenge=self.challenge_name, model="none", status="failed"),
-            )
+            if winner:
+                # Stop the remaining solvers and reap their tasks so no
+                # "Task was destroyed but it is pending" warnings leak.
+                for s in self.solvers:
+                    s.stop()
+                for t in pending:
+                    t.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
+                self.result = winner
+            else:
+                # All solvers finished without finding a flag.
+                self.result = max(
+                    (t.result() for t in tasks),
+                    key=lambda r: r.tokens_used,
+                    default=SolverResult(
+                        challenge=self.challenge_name, model="none", status="failed",
+                    ),
+                )
+        finally:
+            # Safety net: never leave stray pending tasks behind.
+            for t in tasks:
+                if not t.done():
+                    t.cancel()
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
 
         return self.result
 

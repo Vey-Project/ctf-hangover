@@ -166,6 +166,28 @@ async def run_competition(challenges_dir: str) -> None:
                 )
                 swarm_tasks.append(asyncio.create_task(swarm.run()))
 
+            # Self-play: spawn additional swarms for alternative
+            # interpretations of the challenge (when enabled). Each variant
+            # races the same model roster against a reframed prompt, so a
+            # non-obvious angle can surface a flag the primary swarm missed.
+            if settings.enable_selfplay:
+                variants = await selfplay_variants(
+                    prompt,
+                    model=settings.coordinator_model,
+                    n=3,
+                    router=router,
+                )
+                for vi, variant in enumerate(variants):
+                    swarm = Swarm(
+                        challenge_name=f"{name}/selfplay-{vi + 1}",
+                        challenge_prompt=variant,
+                        category=category,
+                        bus=bus,
+                        available_models=available,
+                        router=router,
+                    )
+                    swarm_tasks.append(asyncio.create_task(swarm.run()))
+
             # Throttle parallel swarms
             if len(swarm_tasks) >= settings.max_parallel_swarms:
                 done, pending = await asyncio.wait(

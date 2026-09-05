@@ -109,8 +109,20 @@ class CTFdClient:
         resp.raise_for_status()
         return resp.json().get("data", {})
 
-    async def poll_new(self, known_ids: set[int], interval: float = 5.0) -> list[dict]:
-        """Poll for new challenges. Returns list of new challenge dicts."""
+    async def poll_new(
+        self,
+        known_ids: set[int],
+        interval: float = 5.0,
+        max_waits: int = 0,
+    ) -> list[dict]:
+        """Poll for new challenges. Returns list of new challenge dicts.
+
+        Polls forever by default (max_waits=0). Pass a positive max_waits to
+        bound the loop and return [] once the budget is exhausted — callers
+        that run in a finite competition window should set this so a dead
+        platform doesn't hang the whole run.
+        """
+        waits = 0
         while True:
             try:
                 challenges = await self.challenges()
@@ -119,6 +131,10 @@ class CTFdClient:
                     return new
             except Exception as e:
                 log.warning("CTFd poll error: %s", e)
+            waits += 1
+            if max_waits and waits >= max_waits:
+                log.info("poll_new: no new challenges after %d polls, giving up", waits)
+                return []
             await asyncio.sleep(interval)
 
     async def close(self) -> None:

@@ -3,6 +3,7 @@
 Run:  .venv/bin/python -m pytest tests/ -q
 """
 import sys
+import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -10,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from ctf_hangover.solver.core import find_flag, find_all_flags
 
 
-class TestBraceFormats:
+class TestBraceFormats(unittest.TestCase):
     def test_ca_full_prefix(self):
         for text, want in [
             ("flag found: FLAG_CTF_CA{abc123}", "FLAG_CTF_CA{abc123}"),
@@ -28,7 +29,7 @@ class TestBraceFormats:
         assert m is not None and "CA_FLAG_CTF" in m
 
 
-class TestAnswerFormats:
+class TestAnswerFormats(unittest.TestCase):
     def test_md5_sha1_sha256(self):
         assert find_flag("flag = 912ec803b2ce49e4a541068d495ab570") == "912ec803b2ce49e4a541068d495ab570"
         assert find_flag("1a365806c1753eab28645236afc0f56e") == "1a365806c1753eab28645236afc0f56e"
@@ -65,7 +66,7 @@ class TestAnswerFormats:
         assert find_flag("version 2.4.38") is None
 
 
-class TestAllFlags:
+class TestAllFlags(unittest.TestCase):
     def test_find_all_multiple(self):
         text = (
             "decoy 912ec803b2ce49e4a541068d495ab570 then real "
@@ -79,3 +80,24 @@ class TestAllFlags:
     def test_all_flags_returns_unique(self):
         got = find_all_flags("a 1a365806c1753eab28645236afc0f56e b 1a365806c1753eab28645236afc0f56e")
         assert got == ["1a365806c1753eab28645236afc0f56e"]
+
+    def test_noise_filenames_excluded(self):
+        # Common filenames in prose must NOT be treated as answers by
+        # find_all_flags (the coordinator-facing candidate extractor).
+        # (find_flag single-match is intentionally noise-unaware — it is only
+        # used to grab the first plausible token from a solver's final text.)
+        text = "found index.html and config.php, uploaded backup.zip, login page at login.php"
+        got = find_all_flags(text)
+        assert got == [], f"expected no noise matches, got {got}"
+
+    def test_windows_path_no_partial_match(self):
+        # "C:\Users\My Folder" must not match the partial "C:\Users\My".
+        assert find_flag("C:\\Users\\My Folder\\x") is None
+        # Real directory answers still match.
+        assert find_flag("dir C:\\Users\\victim\\Downloads") == "C:\\Users\\victim\\Downloads"
+        assert find_flag("C:\\Users\\Victim\\Documents") == "C:\\Users\\Victim\\Documents"
+
+
+if __name__ == "__main__":
+    # Allow running without pytest:  python tests/test_flag_extraction.py
+    unittest.main()
